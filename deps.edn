@@ -1,0 +1,27 @@
+{:paths   ["src"]
+ :deps
+ {
+  ;; dev
+  ;com.azure/azure-security-keyvault-keys {:mvn/version "4.5.2"}
+  ;com.azure/azure-identity {:mvn/version "1.2.0"}
+  ;com.azure/azure-security-keyvault-secrets {:mvn/version "4.6.3"}
+
+  ;techascent/tech.io.azure                                   {:git/url "https://github.com/Jacob-Kroeze/tech.io.azure.git"
+  ;                                                            :git/sha "6b7d5cce3781ff72d2f49abc0cac180e91d9b224"}
+
+  techascent/tech.io       {:mvn/version "4.31"}
+  clj-commons/clj-ssh {:mvn/version "0.5.15"}
+  ;; logging
+  io.pedestal/pedestal.log {:mvn/version "0.5.10"}
+  org.slf4j/jul-to-slf4j                                     {:mvn/version "1.7.30"}
+  org.slf4j/jcl-over-slf4j                                   {:mvn/version "1.7.30"}
+  org.slf4j/log4j-over-slf4j                                 {:mvn/version "1.7.30"}
+  org.slf4j/osgi-over-slf4j                                  {:mvn/version "1.7.30"}
+  org.apache.logging.log4j/log4j-to-slf4j                    {:mvn/version "2.17.2"}
+  ch.qos.logback/logback-classic                             {:mvn/version "1.2.3"}
+
+  }
+
+ :aliases {:dev   {:extra-deps {com.azure/azure-security-keyvault-keys    {:mvn/version "4.5.2"}
+                                com.azure/azure-identity                  {:mvn/version "1.2.0"}
+                                com.azure/azure-security-keyvault-secrets {:mvn/version "4.6.3"}}}}}
