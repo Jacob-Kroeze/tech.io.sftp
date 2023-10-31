@@ -42,8 +42,9 @@
                       (.getFilename ^ChannelSftp$LsEntry ls-entry))))
    :directory?  (.isDir attrs)})
 
-(defn format-creds
-  "Useful in call-sftp-cmd, the cred map passed in from t.io protocol will have shape
+(defn get-creds
+  "Get creds given host.
+  Useful in call-sftp-cmd, the cred map passed in from t.io protocol will have shape
   {ns-key-host/key-name val} {ns-key2-host/key-name val} so output for
   the client must be filtered for this host {key-name val}"
   [m host]
@@ -65,10 +66,10 @@
   options (see sftp-auth/cred-fn)
   :host-ns/username :host-ns/password
   :private-key-env lookup-in-env-key (not namespaced)
-  Not if nothing writes to output-stream, a zero byte file remains at that :path"
+  Note: if nothing writes to output-stream, a zero byte file remains at that :path on the server"
   [sftp-cmd {:keys [host] :as options}]
   (let [args (->> [(:input sftp-cmd) (:path sftp-cmd)] (remove nil?))
-        {:keys [username password private-key-env]} (-> options (format-creds host))
+        {:keys [username password private-key-env]} (-> options (get-creds host))
         private-key-key (keyword private-key-env)
         [host-user host-server] (let [v (string/split host #"@" 2)]
                                   (if (= 2 (count v))

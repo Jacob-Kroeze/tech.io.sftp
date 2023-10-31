@@ -48,10 +48,3 @@
                 (format "sftp://%s/path/test2.csv" host)
                 "/tmp/clj-test/test.csv"
                 )))))
-
-
-(deftest azure-vault)
-config/*config-map*
-
-
-
