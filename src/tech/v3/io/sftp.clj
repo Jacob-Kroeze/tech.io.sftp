@@ -11,15 +11,6 @@
   (:import (java.io File InputStream OutputStream)))
 
 
-;; set up known_hosts from env
-;jsch.setKnownHosts(new ByteArrayInputStream(knownHostPublicKey.getBytes()));
-#_ (let [jsch (JSch.)
-      _ (.setKnownHosts jsch "c:/users/jacob/.ssh/known_hosts")
-      repo (.getHostKeyRepository jsch)]
-  (->> (.getHostKey repo)
-       (mapv #(conj [] (.getFingerPrint % jsch) (.getHost %)))
-       ))
-
 ;;;;;;;;
 ;;; tech io protocol
 ;;;

@@ -4,7 +4,9 @@
             [io.pedestal.log :as log]
             [tech.config.core :as config])
   (:import (clj_ssh.ssh KeyPairIdentity)
-           (com.jcraft.jsch ChannelSftp$LsEntry JSch SftpATTRS SftpProgressMonitor Session ChannelSftp)))
+           (com.jcraft.jsch ChannelSftp$LsEntry HostKeyRepository JSch SftpATTRS
+                            SftpProgressMonitor Session ChannelSftp
+                            HostKey)))
 
 (set! *warn-on-reflection* true)
 
@@ -58,6 +60,43 @@
             (second %)))
     (into {})))
 
+(defn decode-base-64 [^String s]
+  (.decode (java.util.Base64/getDecoder)
+    s))
+
+(defn host-key [{:keys [host key-string]}]
+  (HostKey. host (decode-base-64 key-string)))
+
+(defn add-to-repo
+  "Add parsed host key string to JSch known_hosts_repository. User-info nil by default"
+  [^HostKeyRepository repo [host key-type key-string] & [user-info]]
+  (log/info :add-host-key-to-jsch-repo "try add" :host host)
+  (try (.add repo (host-key {:host host :key-string key-string})
+         user-info)
+    (catch Exception e (log/error :add-host-key-to-jsch-repo (.getMessage e) :host host))))
+
+(defn config-known-hosts!
+  "Return count added. jsch Agent set to retrieve known_hosts from file and builds host key repo.
+   We also look in opts and config for :tech-sftp-known-hosts and add to jsc agent host key repo"
+  [^JSch agent env opts]
+  (let [^String known-hosts-path (or (:tech-sftp-known-hosts-file env)
+                           (str (System/getProperty "user.home") "/.ssh/known_hosts"))
+        _ (.setKnownHosts agent known-hosts-path)
+        repo (.getHostKeyRepository agent)
+        from-opts (some->
+                    (:tech-sftp-known-hosts opts)
+                    string/split-lines)
+        user-info nil]
+    (->> from-opts
+      (remove nil?)
+      (mapv
+        #(-> %
+           (string/split #" ")
+           (partial add-to-repo repo)
+           ))
+      count
+      )))
+
 
 (defn call-sftp-cmd
   "sftp-cmd
@@ -77,10 +116,10 @@
                                     (into [nil] v)))
         options (merge options
                   {:username username :password password})
-        ;_ (def options' options)
-        known-hosts-path (str (System/getProperty "user.home") "/.ssh/known_hosts")
         agent (JSch.)
-        _ (.setKnownHosts agent known-hosts-path)
+        _ (config-known-hosts! agent
+            (config/get-config-map)
+            options)
         _ (when private-key-key
             (.addIdentity agent
               (KeyPairIdentity. agent ""
@@ -127,7 +166,7 @@
                 :host/password "test"
                 :host "test.test"})
 
-  ;; convertabile to io/output-stream
+  ;; convertable to io/output-stream
   (call-sftp-cmd
     {:cmd  :output-stream
      :path "test.csv"}
