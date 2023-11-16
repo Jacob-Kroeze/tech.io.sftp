@@ -70,19 +70,22 @@
 
 (defn add-to-repo
   "Add parsed host key string to JSch known_hosts_repository. User-info nil by default"
-  [^HostKeyRepository repo [host key-type key-string] & [user-info]]
+  [[host key-type key-string] ^HostKeyRepository repo & [user-info]]
   (log/info :add-host-key-to-jsch-repo "try add" :host host)
-  (try (.add repo (host-key {:host host :key-string key-string})
-         user-info)
-    (catch Exception e (log/error :add-host-key-to-jsch-repo (.getMessage e) :host host))))
+  (let [hkey (host-key {:host host :key-string key-string})
+        hkey-bytes (decode-base-64 key-string)]
+    (when (= HostKeyRepository/NOT_INCLUDED
+            (.check repo host hkey-bytes))
+      (.add repo hkey
+        user-info))))
 
 (defn config-known-hosts!
   "Return count added. jsch Agent set to retrieve known_hosts from file and builds host key repo.
    We also look in opts and config for :tech-sftp-known-hosts and add to jsc agent host key repo
    If known hosts file isn't created an in-memory object is used as the repo; see JSch"
-  [^JSch agent env opts]
-  (let [^String known-hosts-path (or (:tech-sftp-known-hosts-file env)
-                           (str (System/getProperty "user.home") "/.ssh/known_hosts"))
+  [^JSch agent opts]
+  (let [^String known-hosts-path (or (:tech-sftp-known-hosts-file opts)
+                                   (str (System/getProperty "user.home") "/.ssh/known_hosts"))
         known-hosts-file (io/file known-hosts-path)
         _ (when (.exists known-hosts-file) (.setKnownHosts agent known-hosts-path))
         repo (.getHostKeyRepository agent)
@@ -95,16 +98,23 @@
       (mapv
         #(-> %
            (string/split #" ")
-           (partial add-to-repo repo)
-           ))
-      count)))
+           (add-to-repo repo)
+           )))
 
+    (mapv #(into {} [[:host (.getHost ^HostKey %)]
+                     [:fingerprint (.getFingerPrint ^HostKey % agent)]])
+      (.getHostKey repo))))
+
+;;/maybe locking in known hosts file weird
 (comment
-  (config-known-hosts!
-    (JSch.)
-    {}
-    {}
-    ))
+  (config/reload-config!)
+  (def keys' (config-known-hosts!
+               (JSch.)
+               options'))
+
+  (:tech-sftp-known-hosts options')
+  (:tech-sftp-known-hosts-file options')
+  )
 
 (defn call-sftp-cmd
   "sftp-cmd
@@ -124,9 +134,9 @@
                                     (into [nil] v)))
         options (merge options
                   {:username username :password password})
+        _ (def options' options)
         agent (JSch.)
         _ (config-known-hosts! agent
-            (config/get-config-map)
             options)
         _ (when private-key-key
             (.addIdentity agent
