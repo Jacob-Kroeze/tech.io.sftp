@@ -2,7 +2,8 @@
   (:require [clj-ssh.ssh :as ssh]
             [clojure.string :as string]
             [io.pedestal.log :as log]
-            [tech.config.core :as config])
+            [tech.config.core :as config]
+            [clojure.java.io :as io])
   (:import (clj_ssh.ssh KeyPairIdentity)
            (com.jcraft.jsch ChannelSftp$LsEntry HostKeyRepository JSch SftpATTRS
                             SftpProgressMonitor Session ChannelSftp
@@ -77,11 +78,13 @@
 
 (defn config-known-hosts!
   "Return count added. jsch Agent set to retrieve known_hosts from file and builds host key repo.
-   We also look in opts and config for :tech-sftp-known-hosts and add to jsc agent host key repo"
+   We also look in opts and config for :tech-sftp-known-hosts and add to jsc agent host key repo
+   If known hosts file isn't created an in-memory object is used as the repo; see JSch"
   [^JSch agent env opts]
   (let [^String known-hosts-path (or (:tech-sftp-known-hosts-file env)
                            (str (System/getProperty "user.home") "/.ssh/known_hosts"))
-        _ (.setKnownHosts agent known-hosts-path)
+        known-hosts-file (io/file known-hosts-path)
+        _ (when (.exists known-hosts-file) (.setKnownHosts agent known-hosts-path))
         repo (.getHostKeyRepository agent)
         from-opts (some->
                     (:tech-sftp-known-hosts opts)
@@ -94,9 +97,14 @@
            (string/split #" ")
            (partial add-to-repo repo)
            ))
-      count
-      )))
+      count)))
 
+(comment
+  (config-known-hosts!
+    (JSch.)
+    {}
+    {}
+    ))
 
 (defn call-sftp-cmd
   "sftp-cmd
